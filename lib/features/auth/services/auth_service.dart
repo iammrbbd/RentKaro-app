@@ -53,6 +53,33 @@ class AuthService {
         'application/json',
       },
     ),
+  )..interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        print('AUTH DIO REQUEST');
+        print('URL: ${options.uri}');
+        print('CONNECT TIMEOUT: ${options.connectTimeout}');
+        print('RECEIVE TIMEOUT: ${options.receiveTimeout}');
+        print('SEND TIMEOUT: ${options.sendTimeout}');
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        print('AUTH DIO RESPONSE');
+        print('URL: ${response.requestOptions.uri}');
+        print('STATUS: ${response.statusCode}');
+        handler.next(response);
+      },
+      onError: (error, handler) {
+        print('AUTH DIO ERROR');
+        print('URL: ${error.requestOptions.uri}');
+        print('TYPE: ${error.type}');
+        print('CONNECT TIMEOUT: ${error.requestOptions.connectTimeout}');
+        print('RECEIVE TIMEOUT: ${error.requestOptions.receiveTimeout}');
+        print('SEND TIMEOUT: ${error.requestOptions.sendTimeout}');
+        print('MESSAGE: ${error.message}');
+        handler.next(error);
+      },
+    ),
   );
 
   final Dio _dio;
@@ -86,6 +113,11 @@ class AuthService {
     required String role,
   }) async {
     try {
+      print('SIGNUP REQUEST START');
+      print('SIGNUP DIO RECEIVE TIMEOUT: ${_dio.options.receiveTimeout}');
+      print('SIGNUP DIO CONNECT TIMEOUT: ${_dio.options.connectTimeout}');
+      print('SIGNUP DIO SEND TIMEOUT: ${_dio.options.sendTimeout}');
+
       final response = await _dio.post(
         '/api/auth/signup',
         data: {
@@ -96,6 +128,10 @@ class AuthService {
           'role': role.trim().toLowerCase(),
         },
       );
+
+      print('SIGNUP REQUEST SUCCESS');
+      print('SIGNUP STATUS: ${response.statusCode}');
+      print('SIGNUP RESPONSE DATA: ${response.data}');
 
       if (response.data is! Map) {
         throw Exception(
@@ -123,6 +159,13 @@ class AuthService {
         email: responseEmail,
       );
     } on DioException catch (error) {
+      print('SIGNUP REQUEST ERROR');
+      print('SIGNUP ERROR TYPE: ${error.type}');
+      print('SIGNUP ERROR URL: ${error.requestOptions.uri}');
+      print('SIGNUP ERROR RECEIVE TIMEOUT: ${error.requestOptions.receiveTimeout}');
+      print('SIGNUP ERROR MESSAGE: ${error.message}');
+      print('SIGNUP ERROR STATUS: ${error.response?.statusCode}');
+
       throw Exception(
         _extractErrorMessage(
           error,
