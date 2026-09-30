@@ -66,6 +66,17 @@ class AuthService {
   // ==========================================================
   // SIGNUP
   // ==========================================================
+  //
+  // IMPORTANT:
+  // Signup ONLY starts the OTP verification process.
+  //
+  // The backend does NOT return an authentication token here.
+  //
+  // Token is received ONLY after:
+  //
+  // /api/auth/signup/verify-otp
+  //
+  // ==========================================================
 
   Future<SignupOtpResponse> signup({
     required String name,
@@ -75,15 +86,14 @@ class AuthService {
     required String role,
   }) async {
     try {
-      final response =
-      await _dio.post(
+      final response = await _dio.post(
         '/api/auth/signup',
         data: {
-          'name': name,
-          'phone': phone,
-          'email': email,
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'email': email?.trim(),
           'password': password,
-          'role': role,
+          'role': role.trim().toLowerCase(),
         },
       );
 
@@ -98,8 +108,19 @@ class AuthService {
         response.data,
       );
 
-      return SignupOtpResponse.fromJson(
-        data,
+      final serverEmail =
+          data['email']?.toString().trim() ?? '';
+
+      final responseEmail =
+      serverEmail.isNotEmpty
+          ? serverEmail
+          : (email?.trim() ?? '');
+
+      return SignupOtpResponse(
+        message:
+        data['message']?.toString() ??
+            'Verification OTP sent to your email.',
+        email: responseEmail,
       );
     } on DioException catch (error) {
       throw Exception(
@@ -124,14 +145,25 @@ class AuthService {
   // ==========================================================
   // VERIFY SIGNUP OTP
   // ==========================================================
+  //
+  // Authentication token is expected HERE.
+  //
+  // Backend response:
+  //
+  // {
+  //   "access_token": "...",
+  //   "token_type": "bearer",
+  //   "user": {...}
+  // }
+  //
+  // ==========================================================
 
   Future<AuthUser> verifySignupOtp({
     required String email,
     required String otp,
   }) async {
     try {
-      final response =
-      await _dio.post(
+      final response = await _dio.post(
         '/api/auth/signup/verify-otp',
         data: {
           'email': email.trim(),
@@ -155,11 +187,9 @@ class AuthService {
       // ------------------------------------------------------
 
       final token =
-      data['access_token']
-          ?.toString();
+      data['access_token']?.toString().trim();
 
-      if (token == null ||
-          token.trim().isEmpty) {
+      if (token == null || token.isEmpty) {
         throw Exception(
           'Account was created but authentication token was not received.',
         );
@@ -219,13 +249,11 @@ class AuthService {
   // RESEND SIGNUP OTP
   // ==========================================================
 
-  Future<SignupOtpResponse>
-  resendSignupOtp({
+  Future<SignupOtpResponse> resendSignupOtp({
     required String email,
   }) async {
     try {
-      final response =
-      await _dio.post(
+      final response = await _dio.post(
         '/api/auth/signup/resend-otp',
         queryParameters: {
           'email': email.trim(),
@@ -243,8 +271,16 @@ class AuthService {
         response.data,
       );
 
-      return SignupOtpResponse.fromJson(
-        data,
+      final serverEmail =
+          data['email']?.toString().trim() ?? '';
+
+      return SignupOtpResponse(
+        message:
+        data['message']?.toString() ??
+            'Verification OTP sent to your email.',
+        email: serverEmail.isNotEmpty
+            ? serverEmail
+            : email.trim(),
       );
     } on DioException catch (error) {
       throw Exception(
@@ -275,8 +311,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response =
-      await _dio.post(
+      final response = await _dio.post(
         '/api/auth/login',
         data: {
           'phone': phone.trim(),
@@ -296,11 +331,9 @@ class AuthService {
       );
 
       final token =
-      data['access_token']
-          ?.toString();
+      data['access_token']?.toString().trim();
 
-      if (token == null ||
-          token.trim().isEmpty) {
+      if (token == null || token.isEmpty) {
         throw Exception(
           'Login succeeded but authentication token was not received.',
         );
@@ -364,8 +397,7 @@ class AuthService {
         );
       }
 
-      final response =
-      await _dio.get(
+      final response = await _dio.get(
         '/api/auth/me',
         options: Options(
           headers: {
@@ -611,8 +643,7 @@ class AuthService {
             first['msg'];
 
             if (message != null) {
-              return message
-                  .toString();
+              return message.toString();
             }
           }
         }
@@ -630,29 +661,41 @@ class AuthService {
       }
     }
 
+    // --------------------------------------------------------
+    // Plain text response
+    // --------------------------------------------------------
+
     if (responseData is String &&
         responseData.trim().isNotEmpty) {
       return responseData;
     }
 
+    // --------------------------------------------------------
+    // TIMEOUTS
+    // --------------------------------------------------------
+
     if (error.type ==
         DioExceptionType.connectionTimeout) {
-      return 'Connection timed out. Please check your internet connection.';
+      return
+        'Connection timed out. Please check your internet connection.';
     }
 
     if (error.type ==
         DioExceptionType.receiveTimeout) {
-      return 'Server response timed out. Please try again.';
+      return
+        'Server response timed out. Please try again.';
     }
 
     if (error.type ==
         DioExceptionType.sendTimeout) {
-      return 'Request timed out. Please try again.';
+      return
+        'Request timed out. Please try again.';
     }
 
     if (error.type ==
         DioExceptionType.connectionError) {
-      return 'Unable to connect to RentKaro server.';
+      return
+        'Unable to connect to RentKaro server.';
     }
 
     return fallback;
